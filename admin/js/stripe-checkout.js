@@ -29,10 +29,8 @@ jQuery(document).ready(function($) {
         $(this).text('Processing...').prop('disabled', true);
         $(this).addClass('ds-loading-button'); // Add a loading class for styling.
 
-        // Create a nonce for security. This is crucial for AJAX requests in WordPress.
-        // In a real scenario, you'd generate this nonce in PHP and pass it via wp_localize_script.
-        // For this example, we'll use a placeholder.
-        const ajaxNonce = 'ds_pro_stripe_nonce_placeholder'; // <--- IMPORTANT: Generate this in PHP and pass it securely.
+        // Use the nonce passed securely from PHP via wp_localize_script.
+        const ajaxNonce = dsProStripe.nonce; // <--- UPDATED: Using the nonce from dsProStripe object.
 
         // Make an AJAX call to your WordPress backend to create a Stripe Checkout Session.
         $.ajax({
