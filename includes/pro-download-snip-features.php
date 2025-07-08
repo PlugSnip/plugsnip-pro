@@ -169,6 +169,7 @@ function ds_pro_render_stripe_button( $html, $post_id, $settings ) {
         'productId'      => $post_id,
         'ajaxurl'        => admin_url( 'admin-ajax.php' ), // For creating Stripe Checkout session
         'returnUrl'      => ! empty( $settings['thank_you_page'] ) ? get_permalink( $settings['thank_you_page'] ) : home_url('/'),
+        'nonce'          => wp_create_nonce( 'ds_pro_stripe_nonce' ), // <--- ADDED THIS LINE
     ]);
 
     ob_start();
@@ -217,41 +218,38 @@ function ds_pro_create_stripe_checkout() {
     }
 
     // Include Stripe PHP library (you'll need to download and include this in your Pro plugin)
-    // require_once PLUGSNIP_PRO_PLUGIN_DIR . 'vendor/stripe/stripe-php/init.php'; // Example path
+    require_once PLUGSNIP_PRO_PLUGIN_DIR . 'vendor/stripe/stripe-php/init.php'; // Example path
 
     try {
         // Set Stripe API key
-        // \Stripe\Stripe::setApiKey( $stripe_secret_key );
+        \Stripe\Stripe::setApiKey( $stripe_secret_key );
 
         // Create a Checkout Session
-        // $checkout_session = \Stripe\Checkout\Session::create([
-        //     'line_items' => [[
-        //         'price_data' => [
-        //             'currency'     => $currency_code,
-        //             'product_data' => [
-        //                 'name' => $product_title,
-        //             ],
-        //             'unit_amount'  => round( $price * 100 ), // Price in cents
-        //         ],
-        //         'quantity'   => 1,
-        //     ]],
-        //     'mode'        => 'payment',
-        //     'success_url' => add_query_arg( 'ds_payment_status', 'success', $settings['thank_you_page'] ? get_permalink( $settings['thank_you_page'] ) : home_url('/') ),
-        //     'cancel_url'  => get_permalink( $product_id ), // Or current page
-        //     'metadata'    => [
-        //         'product_id' => $product_id,
-        //     ],
-        //     'payment_intent_data' => [
-        //         'metadata' => [
-        //             'product_id' => $product_id,
-        //         ],
-        //     ],
-        // ]);
+        $checkout_session = \Stripe\Checkout\Session::create([
+            'line_items' => [[
+                'price_data' => [
+                    'currency'     => $currency_code,
+                    'product_data' => [
+                        'name' => $product_title,
+                    ],
+                    'unit_amount'  => round( $price * 100 ), // Price in cents
+                ],
+                'quantity'   => 1,
+            ]],
+            'mode'        => 'payment',
+            'success_url' => add_query_arg( 'ds_payment_status', 'success', $settings['thank_you_page'] ? get_permalink( $settings['thank_you_page'] ) : home_url('/') ),
+            'cancel_url'  => get_permalink( $product_id ), // Or current page
+            'metadata'    => [
+                'product_id' => $product_id,
+            ],
+            'payment_intent_data' => [
+                'metadata' => [
+                    'product_id' => $product_id,
+                ],
+            ],
+        ]);
 
-        // For demonstration, we'll simulate a session ID
-        $session_id = 'cs_test_simulated_session_id'; // Replace with actual $checkout_session->id
-
-        wp_send_json_success( [ 'sessionId' => $session_id ] );
+        wp_send_json_success( [ 'sessionId' => $checkout_session->id ] );
 
     } catch ( Exception $e ) {
         error_log( 'Stripe Checkout Session Error: ' . $e->getMessage() );
@@ -294,35 +292,18 @@ function ds_pro_handle_stripe_webhook() {
     }
 
     // Include Stripe PHP library
-    // require_once PLUGSNIP_PRO_PLUGIN_DIR . 'vendor/stripe/stripe-php/init.php'; // Example path
+    require_once PLUGSNIP_PRO_PLUGIN_DIR . 'vendor/stripe/stripe-php/init.php'; // Example path
 
-    // \Stripe\Stripe::setApiKey( $stripe_secret_key );
+    \Stripe\Stripe::setApiKey( $stripe_secret_key );
 
     $payload = @file_get_contents( 'php://input' );
     $sig_header = $_SERVER['HTTP_STRIPE_SIGNATURE'];
     $event = null;
 
     try {
-        // $event = \Stripe\Webhook::constructEvent(
-        //     $payload, $sig_header, $stripe_webhook_secret
-        // );
-        // For demonstration, simulate an event object
-        $event = (object) [
-            'type' => 'checkout.session.completed',
-            'data' => (object) [
-                'object' => (object) [
-                    'id' => 'cs_test_simulated_session_id',
-                    'metadata' => (object) [
-                        'product_id' => 123, // Replace with actual product ID from metadata
-                    ],
-                    'customer_details' => (object) [
-                        'email' => 'test@example.com', // Replace with actual customer email
-                    ],
-                    'amount_total' => 2999, // Price in cents
-                    'currency' => 'usd',
-                ],
-            ],
-        ];
+        $event = \Stripe\Webhook::constructEvent(
+            $payload, $sig_header, $stripe_webhook_secret
+        );
 
     } catch ( \UnexpectedValueException $e ) {
         // Invalid payload
@@ -366,5 +347,3 @@ function ds_pro_handle_stripe_webhook() {
     status_header( 200 ); // Respond with 200 OK to Stripe
     exit();
 }
-
-
